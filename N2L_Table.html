@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" content="width=device-width,initial-scale=1.0">
+<title>Newton Second: Law Playground</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+<style>
+/* —— UI skin (unchanged) —— */
+:root{--accent:#1e88e5;--accent-h:#1565c0;--neutral:#607d8b;--bg:#fafafa;--surf:#fff;
+ --text:#212121;--muted:#6b6b6b;--border:#e0e0e0;--r:8px;--shadow:0 2px 8px rgba(0,0,0,.06);
+ --font:'Inter',system-ui,sans-serif}
+*,*::before,*(*::after){box-sizing:border-box}
+body{margin:0;font:16px/1.6 var(--font);background:var(--bg);color:var(--text)}
+h1{margin:20px 0 14px;text-align:center;font-size:1.8rem;font-weight:500}
+.container{max-width:1140px;margin:0 auto;padding:0 1rem}
+/* Updated flex container for main layout */
+.main-flex-container{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.2rem;
+  justify-content: center; /* Center items horizontally */
+  align-items: flex-start; /* Align items to the top */
+}
+.card{background:var(--surf);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);padding:1rem}
+.controls{
+  flex: 1 1 320px; /* Allows it to grow, shrink, and have a base width */
+  min-width: 280px; /* Minimum width for controls */
+  max-width: 400px; /* Max width for controls */
+}
+.canvas-and-graphs-container{
+  flex: 2 1 600px; /* Allows it to grow, shrink, and have a base width */
+  min-width: 300px; /* Minimum width for canvas and graphs */
+  display: flex;
+  flex-direction: column; /* Stack canvas and graphs vertically */
+  gap: 1.2rem; /* Space between canvas and graphs */
+}
+#sim{
+  width:100%;
+  /* Removed aspect-ratio to allow dynamic height */
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  background:#eceff1;
+  min-height: 200px; /* Ensure a minimum height for the canvas */
+}
+.group{margin-bottom:.95rem}
+label{display:block;font-size:.78rem;font-weight:500;color:var(--muted);margin-bottom:.3rem}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem}
+input[type=range]{flex:1;height:6px;background:#e0e0e0;border-radius:3px;appearance:none}
+input[type=range]::-webkit-slider-thumb{appearance:none;height:14px;width:14px;border-radius:50%;background:var(--accent);cursor:pointer}
+input[type=number],select{border:1px solid var(--border);border-radius:var(--r);padding:.35rem .55rem;font-size:.82rem;min-width:90px;width:100%}
+button{
+  border:none;
+  border-radius:var(--r);
+  padding:.6rem 1.1rem;
+  font-size:.9rem;
+  font-weight:500;
+  color:#fff;
+  background:var(--accent);
+  cursor:pointer;
+  transition:background .15s, box-shadow .15s, transform .15s; /* Added transform */
+  box-shadow: 0 4px 6px rgba(0,0,0,.1); /* Added shadow */
+}
+button:hover{
+  background:var(--accent-h);
+  box-shadow: 0 6px 8px rgba(0,0,0,.15); /* Darker shadow on hover */
+  transform: translateY(-2px); /* Slight lift effect */
+}
+button:active{
+  transform: translateY(0); /* Press effect */
+  box-shadow: 0 2px 4px rgba(0,0,0,.1);
+}
+
+#modeBtn{background:var(--neutral)}
+#modeBtn:hover{background:#455a64}
+#stopResetBtn{background:#e53935;} /* A distinct color for stop/reset */
+#stopResetBtn:hover{background:#c62828;}
+
+.info-display{ /* New class for the info box within the graph card */
+  margin-bottom: 0.8rem; /* Adjusted margin for better spacing within its new card */
+  padding: 0.6rem;
+  background-color: var(--bg); /* Lighter background for contrast */
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  text-align: left; /* Align text to the left for multi-line display */
+  font-size: .82rem;
+  color: var(--muted);
+  box-shadow: inset 0 1px 3px rgba(0,0,0,.05); /* Subtle inner shadow */
+  line-height: 1.4; /* Improve line spacing */
+}
+.info-display div { /* Changed from span to div for block display */
+  display: flex; /* Use flex to align title and value on the same line */
+  justify-content: space-between; /* Push title to left, value to right */
+}
+.info-display b {
+  margin-right: 0.5em; /* Space between title and value */
+}
+
+.graphGrid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+  gap:1.2rem;
+  width: 100%; /* Ensure graph grid takes full width of its container */
+}
+.graph{height:240px;padding-top:.3rem}
+.graph h3{margin:0 0 .25rem;text-align:center;font-size:.84rem;color:var(--muted)}
+.graph canvas{height:100%!important;width:100%!important}
+
+/* New style for simulation controls container */
+.sim-controls {
+  display: flex;
+  justify-content: center; /* Center buttons horizontally */
+  gap: 0.6rem; /* Space between buttons */
+  margin-top: 1rem; /* Space above the buttons */
+  padding-top: 0.5rem; /* Padding inside the card */
+  border-top: 1px solid var(--border); /* Separator line */
+}
+
+/* Responsive adjustments for smaller screens */
+@media(max-width:760px){
+  .main-flex-container{flex-direction:column; align-items: stretch;} /* Stack vertically and stretch */
+  .row{flex-direction:column;align-items:flex-start}
+  .controls, .canvas-and-graphs-container {
+    max-width: 100%; /* Allow them to take full width on small screens */
+  }
+}
+</style>
+</head>
+<body>
+<h1>Newton Second‑Law Playground</h1>
+<div class="container">
+  <div class="main-flex-container">
+
+    <!-- controls -->
+    <div class="card controls">
+      <div class="group"><label>Simulation</label><select id="simSel">
+        <option value="table" selected>Inclined Table</option><option value="atwood">Atwood Machine</option></select></div>
+      <div class="group"><label>Gravity</label><select id="gSel">
+        <option value="9.81" selected>Earth (9.81)</option><option value="1.62">Moon (1.62)</option>
+        <option value="3.71">Mars (3.71)</option><option value="24.79">Jupiter (24.79)</option>
+        <option value="custom">Custom…</option></select>
+        <input id="gCust" type="number" step="0.01" value="9.81" style="display:none;margin-top:.4rem;width:100%"></div>
+
+      <!-- table ctrls -->
+      <div id="tableCtrls">
+        <div class="group"><label>Table height (m)</label><div class="row"><input type="range" id="hTblR" min="0.5" max="4" step="0.1" value="2"><input id="hTblN" type="number" value="2" min="0.5" max="4" step="0.1"></div></div>
+        <div class="group"><label>Cart mass (kg)</label><div class="row"><input type="range" id="mCartR" min="0" max="10" step="0.1" value="0.5"><input id="mCartN" type="number" value="0.5" min="0" max="10" step="0.1"></div></div>
+        <div class="group"><label>Hanging mass (kg)</label><div class="row"><input type="range" id="mHangR" min="0" max="10" step="0.1" value="0.2"><input id="mHangN" type="number" value="0.2" min="0" max="10" step="0.1"></div></div>
+        <div class="group"><label>Friction μ</label><div class="row"><input type="range" id="muR" min="0" max="1" step="0.01" value="0"><input id="muN" type="number" value="0" min="0" max="1" step="0.01"></div></div>
+        <div class="group"><label>Table angle (°)</label><div class="row"><input type="range" id="angR" min="-15" max="15" step="1" value="0"><input id="angN" type="number" value="0" min="-15" max="15" step="1"></div></div>
+      </div>
+
+      <!-- atwood ctrls -->
+      <div id="atCtrls" style="display:none">
+        <div class="group"><label>Pulley height (m)</label><div class="row"><input type="range" id="hPulR" min="1" max="6" step="0.1" value="3"><input id="hPulN" type="number" value="3" min="1" max="6" step="0.1"></div></div>
+        <div class="group"><label>Mass M₁ (kg)</label><div class="row"><input type="range" id="m1R" min="0" max="10" step="0.1" value="1"><input id="m1N" type="number" value="1" min="0" max="10" step="0.1"></div></div>
+        <div class="group"><label>Mass M₂ (kg)</label><div class="row"><input type="range" id="m2R" min="0" max="10" step="0.1" value="2"><input id="m2N" type="number" value="2" min="0" max="10" step="0.1"></div></div>
+      </div>
+
+      <div class="flex" style="gap:.6rem">
+        <button id="modeBtn">Mode: Perfect</button>
+      </div>
+    </div>
+
+    <!-- canvas and graphs container -->
+    <div class="canvas-and-graphs-container">
+      <!-- canvas -->
+      <div class="card canvasBox">
+        <canvas id="sim"></canvas>
+        <!-- New container for Start/Stop/Reset buttons -->
+        <div class="sim-controls">
+          <button id="startBtn">Start</button>
+          <button id="stopResetBtn">Stop/Reset</button>
+        </div>
+      </div>
+
+      <!-- graphs -->
+      <div class="graphGrid">
+        <!-- New card for simulation info, now part of the graph grid -->
+        <div class="card graph">
+          <h3>Simulation Status</h3>
+          <div class="info-display" id="info">
+            <div><b>Average Acceleration:</b> <span id="infoAcc">0.00</span> m/s²</div>
+            <div><b>Final Velocity:</b> <span id="infoVel">0.00</span> m/s</div>
+            <div><b>Net Force:</b> <span id="infoNetF">0.00</span> N</div>
+            <div><b>Status:</b> <span id="infoStatus">Ready</span></div>
+          </div>
+        </div>
+        <div class="card graph">
+          <h3>Position vs Time</h3>
+          <canvas id="posChart"></canvas>
+        </div>
+        <div class="card graph"><h3>Velocity vs Time</h3><canvas id="velChart"></canvas></div>
+        <div class="card graph"><h3>Acceleration vs Time</h3><canvas id="accChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* —— Hi‑DPI canvas —— */
+const cv=document.getElementById('sim'),ctx=cv.getContext('2d');
+function fitCanvas(){const dpr=window.devicePixelRatio||1,r=cv.getBoundingClientRect();
+  cv.width=r.width*dpr;cv.height=r.height*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);}
+// Initial call to set canvas dimensions based on CSS.
+fitCanvas();
+
+/* —— geometry constants —— */
+// Global variable to store the calculated floor Y-coordinate
+let floorY_canvas_coord;
+
+function geom(){
+  // Use cv.width and cv.height directly as they are set by fitCanvas()
+  const W=cv.width/(window.devicePixelRatio||1),H=cv.height/(window.devicePixelRatio||1);
+
+  // General Constants
+  const FLOOR_HEIGHT = 30;
+  const PIXELS_PER_METER = 100; // Scale factor for converting meters to pixels
+  const EPSILON_METERS = 0.05; // Increased value to allow visual overshoot for stopping
+
+  // Table Simulation Specific Constants
+  const TABLE_LEFT_X = 50;
+  const TABLE_RIGHT_X = W - 100;
+  const TABLE_THICKNESS = 10;
+  const CART_WIDTH = 60;
+  const CART_HEIGHT = 30;
+  const WHEEL_RADIUS = 6;
+  const WHEEL_OFFSET_FROM_CART_BOTTOM = 4; // Distance from cart's bottom edge to wheel center
+  const CART_START_X_OFFSET = 60; // Initial X position offset for the cart
+  const CART_LIFT = 10; // How much the cart is lifted above the table surface
+
+  // Pulley (for Table) Constants
+  const PULLEY_TABLE_EXT_OFFSET = 25; // How far pulley extends from table edge horizontally
+  const PULLEY_TABLE_Y_OFFSET = 10; // Vertical offset from table top-right for pulley center (this is now dynamic)
+  const PULLEY_TABLE_RADIUS = 15;
+  const HANGING_MASS_INITIAL_DANGLE_METERS = 0.2; // Initial dangle for the hanging mass below the pulley
+
+  // Atwood Machine Specific Constants
+  const PULLEY_ATWOOD_RADIUS = 15; // Assuming same radius for simplicity
+  const MASS_WIDTH = 30; // Slightly smaller
+  const MASS_HEIGHT = 25; // Slightly smaller
+  const ATWOOD_PULLEY_OFFSET_Y_RATIO = 0.6; // Increased ratio to lengthen string, allowing mass to hit floor
+
+  return{
+    floor: floorY_canvas_coord, // Use the dynamically calculated floor Y-coordinate
+    scale: PIXELS_PER_METER,
+    epsilonMeters: EPSILON_METERS,
+
+    // Table
+    tableLeftX: TABLE_LEFT_X,
+    tableRightX: TABLE_RIGHT_X,
+    tableThickness: TABLE_THICKNESS,
+    cartWidth: CART_WIDTH,
+    cartHeight: CART_HEIGHT,
+    wheelRadius: WHEEL_RADIUS,
+    wheelOffsetFromCartBottom: WHEEL_OFFSET_FROM_CART_BOTTOM,
+    cartStartXOffset: CART_START_X_OFFSET,
+    cartLift: CART_LIFT,
+
+    // Pulley (Table)
+    pulleyTableExtOffset: PULLEY_TABLE_EXT_OFFSET,
+    pulleyTableYOffset: PULLEY_TABLE_Y_OFFSET, // Still here for reference, but not used in drawTable for Y calculation directly
+    pulleyTableRadius: PULLEY_TABLE_RADIUS,
+    hangingMassInitialDangleMeters: HANGING_MASS_INITIAL_DANGLE_METERS,
+
+    // Atwood
+    pulleyAtwoodRadius: PULLEY_ATWOOD_RADIUS,
+    massWidth: MASS_WIDTH,
+    massHeight: MASS_HEIGHT,
+    atwoodPulleyOffsetYRatio: ATWOOD_PULLEY_OFFSET_Y_RATIO,
+
+    canvasWidth: W,
+    canvasHeight: H
+  };
+}
+
+/* —— state —— */
+let sim='table',mode='real',g=9.81,t=0,pos=0,vel=0,acc=0,netF=0,lastTS=null,angle=0,anim=null,lastAcc=0,lastVel=0;
+
+/* —— DOM bindings (helper function) —— */
+const $=id=>document.getElementById(id);
+
+// Declare chart variables globally
+let posChart, velChart, accChart;
+
+// Common Chart.js options for tooltips
+const tooltipOptions = {
+  mode: 'index',
+  intersect: false,
+  callbacks: {
+    title: function(tooltipItems) {
+      // Display the time as the title
+      return `Time: ${tooltipItems[0].label} s`;
+    },
+    label: function(tooltipItem) {
+      // Display the dataset label and its value
+      return `${tooltipItem.dataset.label}: ${tooltipItem.formattedValue}`;
+    }
+  }
+};
+
+// Function to destroy and re-create charts
+function initializeCharts() {
+  // Destroy existing charts if they exist
+  if (posChart) posChart.destroy();
+  if (velChart) velChart.destroy();
+  if (accChart) accChart.destroy();
+
+  const base={
+    responsive:true,
+    maintainAspectRatio:false,
+    elements:{point:{radius:0}},
+    animation:false,
+    scales:{
+      x:{type:'linear',title:{display:true,text:'Time (s)', padding: { bottom: 20 }}},
+      y:{title:{display:true,text:''}}
+    },
+    plugins: {
+      tooltip: tooltipOptions // Apply common tooltip options
+    },
+    hover: {
+      mode: 'index',
+      intersect: false
+    }
+  };
+
+  posChart=new Chart($("posChart").getContext("2d"),{type:'line',data:{labels:[],datasets:[{label:'Position (m)',data:[],borderColor:'#1e88e5',tension:.15}]},
+     options:{...base,scales:{...base.scales,y:{...base.scales.y,title:{display:true,text:'Position (m)'}}}}});
+  velChart=new Chart($("velChart").getContext("2d"),{type:'line',data:{labels:[],datasets:[{label:'Velocity (m/s)',data:[],borderColor:'#ef5350',tension:.15}]},
+     options:{...base,scales:{...base.scales,y:{...base.scales.y,title:{display:true,text:'Velocity (m/s)'}}}}});
+  accChart=new Chart($("accChart").getContext("2d"),{type:'line',data:{labels:[],datasets:[{label:'Acceleration (m/s²)',data:[],borderColor:'#43a047',stepped:true}]},
+     options:{...base,scales:{...base.scales,y:{...base.scales.y,title:{display:true,text:'Acceleration (m/s²)'}}}}});
+}
+
+
+// logPt function (depends on charts, so needs to be defined after chart variables are declared)
+function logPt(){
+  // Safety check to ensure charts are initialized before use
+  if (!posChart || !velChart || !accChart) return;
+  posChart.data.labels.push(t);posChart.data.datasets[0].data.push(pos);
+  velChart.data.labels.push(t);velChart.data.datasets[0].data.push(vel);
+  accChart.data.labels.push(t);accChart.data.datasets[0].data.push(lastAcc);
+  [posChart,velChart,accChart].forEach(c=>c.update('none'));
+}
+
+// Function to update the info display
+function updateInfoDisplay(accVal, velVal, netFVal, statusText) {
+  $('infoAcc').textContent = accVal.toFixed(2);
+  $('infoVel').textContent = velVal.toFixed(2);
+  $('infoNetF').textContent = netFVal.toFixed(2);
+  $('infoStatus').textContent = statusText;
+}
+
+// Function to calculate the required height of the simulation content from its lowest point (floor) to its highest point.
+function calculateContentHeightFromFloor() {
+  const dpr = window.devicePixelRatio || 1;
+  const currentRenderedWidth = cv.getBoundingClientRect().width;
+  // Fix: Correctly calculate currentInternalCanvasWidth
+  const currentInternalCanvasWidth = currentRenderedWidth * dpr;
+
+  const PIXELS_PER_METER = 100;
+  const TABLE_THICKNESS = 10;
+  const PULLEY_TABLE_RADIUS = 15;
+  const CART_HEIGHT = 30;
+  const PULLEY_TABLE_Y_OFFSET = 10;
+
+  let highestElementY_from_floor_px = 0; // The highest point of any simulation element, measured UP from the floor line (Y=0 at floor)
+
+  if (sim === 'table') {
+    const hTbl_m = parseFloat($('hTblR').value);
+    const ang_rad = parseFloat($('angR').value) * Math.PI / 180;
+
+    const TABLE_LEFT_X = 50;
+    const TABLE_RIGHT_X = currentInternalCanvasWidth - 100;
+
+    const tableHeightAtLeft_px = hTbl_m * PIXELS_PER_METER;
+    const tableWidth_px = TABLE_RIGHT_X - TABLE_LEFT_X;
+    const tableHeightAtRight_px = hTbl_m * PIXELS_PER_METER - tableWidth_px * Math.tan(ang_rad);
+
+    // Highest point of the table surface relative to the floor line (Y=0 at floor)
+    const maxTableSurfaceHeight_from_floor = Math.max(tableHeightAtLeft_px, tableHeightAtRight_px) + TABLE_THICKNESS;
+
+    // Pulley's highest point relative to floor line - this calculation will be dynamic in drawTable
+    // For canvas height calculation, we can use a reasonable approximation based on table height.
+    const approxPulleyY_from_floor = tableHeightAtRight_px + PULLEY_TABLE_RADIUS; // Using radius as a rough offset
+    const approxPulleyTopY_from_floor = approxPulleyY_from_floor + PULLEY_TABLE_RADIUS;
+
+    highestElementY_from_floor_px = Math.max(maxTableSurfaceHeight_from_floor, approxPulleyTopY_from_floor);
+
+    // Consider the cart's height above the table surface
+    highestElementY_from_floor_px = Math.max(highestElementY_from_floor_px, maxTableSurfaceHeight_from_floor + CART_HEIGHT);
+
+  } else { // atwood
+    const hPul_m = parseFloat($('hPulR').value); // This is the height from the floor to the pulley's center in meters
+    const PULLEY_ATWOOD_RADIUS = 15;
+
+    // Highest point of the pulley relative to the floor line
+    highestElementY_from_floor_px = (hPul_m * PIXELS_PER_METER) + PULLEY_ATWOOD_RADIUS;
+  }
+  return highestElementY_from_floor_px;
+}
+
+
+// Function to calculate and update canvas height dynamically
+function updateCanvasDimensions() {
+  const FLOOR_THICKNESS_PX = 30;
+  const CANVAS_TOP_PADDING_PX = 50;
+  const CANVAS_BOTTOM_PADDING_PX = 50;
+  const MIN_CANVAS_HEIGHT = 300;
+
+  const contentHeightFromFloor = calculateContentHeightFromFloor();
+
+  // Calculate the Y-coordinate of the floor line from the top of the canvas
+  // This ensures the highest element is positioned at CANVAS_TOP_PADDING_PX
+  floorY_canvas_coord = CANVAS_TOP_PADDING_PX + contentHeightFromFloor;
+
+  // Total canvas height needed = floor Y-coordinate + floor thickness + bottom padding
+  const totalHeightNeeded = floorY_canvas_coord + FLOOR_THICKNESS_PX + CANVAS_BOTTOM_PADDING_PX;
+
+  cv.style.height = `${Math.max(totalHeightNeeded, MIN_CANVAS_HEIGHT)}px`;
+
+  requestAnimationFrame(() => {
+    fitCanvas(); // Recalculate internal canvas dimensions based on new style height
+    initializeCharts(); // Re-initialize charts after canvas resize
+    drawStatic(); // Redraw simulation with new dimensions
+  });
+}
+
+// drawStatic function (depends on charts, so needs to be defined after chart variables are declared)
+function drawStatic(){
+  // Safety check to ensure charts are initialized before use
+  if (!posChart || !velChart || !accChart) return;
+  t=pos=vel=angle=0;lastAcc=lastVel=netF=0;
+  [posChart,velChart,accChart].forEach(c=>{c.data.labels=[0];c.data.datasets[0].data=[0];c.update('none');});
+  if(sim==='table'){const baseY=geom().floor-parseFloat($('hTblR').value)*geom().scale;drawTable(0,baseY);}
+  else drawAtwood(0,parseFloat($('hPulR').value));
+  updateInfoDisplay(0, 0, 0, 'Ready'); // Reset info display
+}
+
+function drawAtwood(d, height){
+  const g0=geom();
+  const {floor, scale, pulleyAtwoodRadius, massWidth, massHeight, atwoodPulleyOffsetYRatio } = g0;
+
+  // Declare pulleyX and pulleyY at the beginning of the function
+  const pulleyX = g0.canvasWidth / 2;
+  const pulleyY = floor - height * scale; // Pulley height from floor
+
+  ctx.clearRect(0,0,g0.canvasWidth,g0.canvasHeight);
+  ctx.fillStyle='#8d6e63';
+  ctx.fillRect(0,floor,g0.canvasWidth,30); // Ground
+
+  // Pulley support
+  ctx.strokeStyle='#616161';
+  ctx.lineWidth=5;
+  ctx.beginPath();
+  ctx.moveTo(pulleyX, floor);
+  ctx.lineTo(pulleyX, pulleyY);
+  ctx.stroke();
+
+  // Pulley wheel
+  ctx.fillStyle='#bdbdbd';
+  ctx.beginPath();
+  ctx.arc(pulleyX, pulleyY, pulleyAtwoodRadius, 0, Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle='#757575';
+  ctx.beginPath();
+  ctx.arc(pulleyX, pulleyY, pulleyAtwoodRadius * 0.3, 0, Math.PI*2);
+  ctx.fill();
+
+  // Pulley rotation indicator
+  ctx.save();
+  ctx.translate(pulleyX, pulleyY);
+  ctx.rotate(angle); // Use the global 'angle' for rotation
+  ctx.strokeStyle='#616161';
+  ctx.lineWidth=2;
+  ctx.beginPath();
+  ctx.moveTo(0,0);
+  ctx.lineTo(pulleyAtwoodRadius,0); // Line from center to edge
+  ctx.stroke();
+  ctx.restore();
+
+  // Masses and String
+  // Positions for masses, centered below the pulley's edges
+  const leftMassX = pulleyX - pulleyAtwoodRadius - massWidth / 2;
+  const rightMassX = pulleyX + pulleyAtwoodRadius - massWidth / 2;
+
+  // Calculate the top Y-coordinate of each mass
+  // d is the displacement. If d is positive, right mass moves down, left mass moves up.
+  const stringOffset = height * scale * atwoodPulleyOffsetYRatio; // Initial dangle in pixels
+  const leftMassTopY = pulleyY + stringOffset - d * scale; // Left mass moves up
+  const rightMassTopY = pulleyY + stringOffset + d * scale; // Right mass moves down
+
+  // Ensure masses stop at the floor
+  const drawLeftMassTopY = Math.min(leftMassTopY, floor - massHeight);
+  const drawRightMassTopY = Math.min(rightMassTopY, floor - massHeight);
+
+  ctx.strokeStyle='#424242';
+  ctx.lineWidth=2;
+  ctx.beginPath();
+  // String from left mass to pulley (left side)
+  ctx.moveTo(leftMassX + massWidth/2, drawLeftMassTopY);
+  ctx.lineTo(pulleyX - pulleyAtwoodRadius, pulleyY);
+  // Arc over pulley (from left to right, counter-clockwise for top half)
+  ctx.arc(pulleyX, pulleyY, pulleyAtwoodRadius, Math.PI, 0, false); // From left (PI) to right (0), counter-clockwise (false)
+  ctx.lineTo(rightMassX + massWidth/2, drawRightMassTopY);
+  ctx.stroke();
+
+  // Draw masses with different colors
+  if(drawLeftMassTopY < floor) { // Only draw if not completely below floor
+    ctx.fillStyle='red'; // Color for M1
+    ctx.fillRect(leftMassX, drawLeftMassTopY, massWidth, massHeight);
+    // Label Mass 1
+    ctx.fillStyle = 'white'; // Text color
+    ctx.font = '14px Arial'; // Font size and family
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('1', leftMassX + massWidth / 2, drawLeftMassTopY + massHeight / 2);
+  }
+  if(drawRightMassTopY < floor) { // Only draw if not completely below floor
+    ctx.fillStyle='blue'; // Color for M2
+    ctx.fillRect(rightMassX, drawRightMassTopY, massWidth, massHeight);
+    // Label Mass 2
+    ctx.fillStyle = 'white'; // Text color
+    ctx.font = '14px Arial'; // Font size and family
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('2', rightMassX + massWidth / 2, drawRightMassTopY + massHeight / 2);
+  }
+}
+
+function stepAtwood(ts,height){if(!anim)return;
+ const g0=geom();
+ const {scale, pulleyAtwoodRadius, massHeight, floor, epsilonMeters, atwoodPulleyOffsetYRatio} = g0;
+ if(lastTS===null)lastTS=ts;drawAtwood(pos,height);
+ let dt=(ts-lastTS)/1000;if(dt<=0||dt>0.5){anim=requestAnimationFrame(n=>stepAtwood(n,height));return;}
+ lastTS=ts;dt=Math.min(dt,.1);const a=mode==='real'?acc*(1+(Math.random()-.5)*.16):acc;
+ vel+=a*dt;pos+=vel*dt+0.5*a*dt*dt;t+=dt;
+ angle+=(Math.abs(vel)*dt)/pulleyAtwoodRadius; // Corrected angle calculation
+ lastAcc=a;lastVel=Math.abs(vel);if(t-posChart.data.labels[posChart.data.labels.length-1]>=.05)logPt();
+
+ // Calculate stop conditions for Atwood machine
+ const pulleyY = floor - height * scale; // Pulley's center Y-coordinate from canvas top
+ const initialStringLength_px = height * scale * atwoodPulleyOffsetYRatio;
+
+ // Max positive displacement (M2 hits floor)
+ // M2's bottom Y-coord (canvas) = (pulleyY + initialStringLength_px + pos * scale) + massHeight
+ // M2 hits floor when M2's bottom Y-coord >= floor
+ // pos * scale >= floor - massHeight - pulleyY - initialStringLength_px
+ const maxPosDisp_M2_floor = (floor - massHeight - pulleyY - initialStringLength_px) / scale + epsilonMeters;
+
+ // Max negative displacement (M1 hits floor)
+ // M1's bottom Y-coord (canvas) = (pulleyY + initialStringLength_px - pos * scale) + massHeight
+ // M1 hits floor when M1's bottom Y-coord >= floor
+ // -pos * scale >= floor - massHeight - pulleyY - initialStringLength_px
+ const maxNegDisp_M1_floor = -((floor - massHeight - pulleyY - initialStringLength_px) / scale + epsilonMeters);
+
+ // M1 hits pulley (M1's top Y-coord <= pulley's bottom Y-coord)
+ // (pulleyY + initialStringLength_px - pos * scale) <= pulleyY - pulleyAtwoodRadius
+ // initialStringLength_px - pos * scale <= -pulleyAtwoodRadius
+ // initialStringLength_px + pulleyAtwoodRadius <= pos * scale
+ const maxPosDisp_M1_pulley = (initialStringLength_px + pulleyAtwoodRadius) / scale - epsilonMeters; // If pos is positive, M1 is moving up
+
+ // M2 hits pulley (M2's top Y-coord <= pulley's bottom Y-coord)
+ // (pulleyY + initialStringLength_px + pos * scale) <= pulleyY - pulleyAtwoodRadius
+ // initialStringLength_px + pos * scale <= -pulleyAtwoodRadius
+ // pos * scale <= -pulleyAtwoodRadius - initialStringLength_px
+ const maxNegDisp_M2_pulley = (-pulleyAtwoodRadius - initialStringLength_px) / scale + epsilonMeters; // If pos is negative, M2 is moving up
+
+ let stopSim = false;
+ if (vel > 0) { // M2 is moving down (pos is increasing)
+   if (pos >= maxPosDisp_M2_floor) stopSim = true; // M2 hits floor
+   if (pos >= maxPosDisp_M1_pulley) stopSim = true; // M1 hits pulley (pos positive means M1 moves up)
+ } else if (vel < 0) { // M2 is moving up (pos is decreasing, M1 is moving down)
+   if (pos <= maxNegDisp_M1_floor) stopSim = true; // M1 hits floor
+   if (pos <= maxNegDisp_M2_pulley) stopSim = true; // M2 hits pulley (pos negative means M2 moves up)
+ }
+
+ updateInfoDisplay(lastAcc, lastVel, netF, 'Running');
+ if(stopSim){
+    updateInfoDisplay(lastAcc, lastVel, netF, 'Stopped');
+    anim=null;
+    return;
+ }
+ anim=requestAnimationFrame(n=>stepAtwood(n,height));}
+
+function drawTable(d, baseY){
+  const g0=geom();
+  const {floor, scale, tableLeftX, tableRightX, tableThickness, cartWidth, cartHeight, wheelRadius, wheelOffsetFromCartBottom, cartStartXOffset, pulleyTableExtOffset, pulleyTableRadius, massWidth, massHeight, hangingMassInitialDangleMeters, cartLift} = g0;
+
+  ctx.clearRect(0,0,g0.canvasWidth,g0.canvasHeight);
+  ctx.fillStyle='#8d6e63';
+  ctx.fillRect(0,floor,g0.canvasWidth,30); // Ground
+
+  const ang=parseFloat($('angR').value)*Math.PI/180;
+  const tableWidth = tableRightX - tableLeftX;
+  const tableTopLeftY = baseY;
+  const tableTopRightY = baseY + tableWidth * Math.tan(ang);
+
+  // Draw table surface
+  ctx.fillStyle='#bcaaa4';
+  ctx.beginPath();
+  ctx.moveTo(tableLeftX, tableTopLeftY - tableThickness);
+  ctx.lineTo(tableRightX, tableTopRightY - tableThickness);
+  ctx.lineTo(tableRightX, tableTopRightY);
+  ctx.lineTo(tableLeftX, tableTopLeftY);
+  ctx.fill();
+
+  // Draw table legs
+  ctx.fillRect(tableLeftX + 10, tableTopLeftY - tableThickness, 10, floor - (tableTopLeftY - tableThickness));
+  ctx.fillRect(tableRightX - 20, tableTopRightY - tableThickness, 10, floor - (tableTopRightY - tableThickness));
+
+
+  // Cart position
+  const currentCartX = cartStartXOffset + d * scale * Math.cos(ang);
+  const cartBottomYOnTable = tableTopLeftY + (currentCartX - tableLeftX) * Math.tan(ang);
+  const cartCenterY = cartBottomYOnTable - (cartHeight / 2 + wheelRadius + wheelOffsetFromCartBottom + cartLift);
+
+
+  ctx.save();
+  ctx.translate(currentCartX, cartCenterY);
+  ctx.rotate(ang);
+  ctx.fillStyle='darkorange';
+  ctx.fillRect(-cartWidth/2, -cartHeight/2, cartWidth, cartHeight);
+
+  // Label Mass 1 (Cart)
+  ctx.fillStyle = 'white'; // Text color
+  ctx.font = '14px Arial'; // Font size and family
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('1', 0, 0); // Label at the center of the cart (local coordinates)
+
+  // Cart wheels
+  ctx.fillStyle='#424242';
+  ctx.beginPath();
+  ctx.arc(-cartWidth/2 + wheelRadius + 5, cartHeight/2 + wheelOffsetFromCartBottom, wheelRadius, 0, Math.PI*2);
+  ctx.arc(cartWidth/2 - wheelRadius - 5, cartHeight/2 + wheelOffsetFromCartBottom, wheelRadius, 0, Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+
+  // Pulley (for Table)
+  const pulleyX = tableRightX + pulleyTableExtOffset;
+
+  // Calculate cart's global attachment point (middle of the right face)
+  // In the cart's local coordinate system (before rotation and translation),
+  // the middle of the right face is (cartWidth/2, 0).
+  const local_attach_x = cartWidth / 2;
+  const local_attach_y = 0; // Middle of the cart's height
+
+  const cartAttachX = currentCartX + (local_attach_x * Math.cos(ang) - local_attach_y * Math.sin(ang));
+  const cartAttachY = cartCenterY + (local_attach_x * Math.sin(ang) + local_attach_y * Math.cos(ang));
+
+  // The y-coordinate of the string at pulleyX, if it were a straight line parallel to the table
+  const stringYAtPulleyX = cartAttachY + Math.tan(ang) * (pulleyX - cartAttachX);
+
+  // Pulley center Y should be such that the string is tangent to its top.
+  // The tangent point for a string parallel to the table will be at an angle `ang - Math.PI / 2` (or ang + PI/2 for string coming from bottom) from the pulley center.
+  // The y-coordinate of this tangent point is `pulleyY + pulleyTableRadius * Math.sin(ang - Math.PI / 2)`.
+  // Rearranging for pulleyY:
+  const pulleyY = stringYAtPulleyX - pulleyTableRadius * Math.sin(ang - Math.PI / 2);
+
+
+  // Pulley support
+  ctx.strokeStyle='#616161';
+  ctx.lineWidth=5;
+  ctx.beginPath();
+  ctx.moveTo(tableRightX, tableTopRightY - 5);
+  ctx.lineTo(pulleyX, pulleyY); // Connect to pulley center
+  ctx.stroke();
+
+  // Pulley wheel
+  ctx.fillStyle='#bdbdbd';
+  ctx.beginPath();
+  ctx.arc(pulleyX, pulleyY, pulleyTableRadius, 0, Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle='#757575';
+  ctx.beginPath();
+  ctx.arc(pulleyX, pulleyY, pulleyTableRadius * 0.3, 0, Math.PI*2);
+  ctx.fill();
+
+  // Pulley rotation indicator
+  ctx.save();
+  ctx.translate(pulleyX, pulleyY);
+  ctx.rotate(angle);
+  ctx.strokeStyle='#616161';
+  ctx.lineWidth=2;
+  ctx.beginPath();
+  ctx.moveTo(0,0);
+  ctx.lineTo(pulleyTableRadius,0);
+  ctx.stroke();
+  ctx.restore();
+
+  // String and Hanging Mass
+  // Tangent point on pulley for string coming from cart
+  const pulleyTangentAngle = ang - Math.PI / 2;
+  const P_string_pulley_entry_x = pulleyX + pulleyTableRadius * Math.cos(pulleyTangentAngle);
+  const P_string_pulley_entry_y = pulleyY + pulleyTableRadius * Math.sin(pulleyTangentAngle);
+
+  // Point on pulley where string goes vertically down (rightmost point)
+  const P_string_pulley_exit_x = pulleyX + pulleyTableRadius;
+  const P_string_pulley_exit_y = pulleyY;
+
+  // Hanging mass position
+  const hangTop = pulleyY + (d + hangingMassInitialDangleMeters) * scale;
+  const drawTop = Math.min(hangTop, floor - massHeight);
+
+  ctx.strokeStyle='#424242';
+  ctx.lineWidth=2;
+  ctx.beginPath();
+  // String from cart to pulley entry point
+  ctx.moveTo(cartAttachX, cartAttachY);
+  ctx.lineTo(P_string_pulley_entry_x, P_string_pulley_entry_y);
+
+  // Arc over pulley from entry point to exit point (clockwise)
+  ctx.arc(pulleyX, pulleyY, pulleyTableRadius, pulleyTangentAngle, 0, false);
+
+
+  // String from pulley exit point to hanging mass
+  ctx.lineTo(P_string_pulley_exit_x, drawTop); // Corrected to draw to the top of the hanging mass
+  ctx.stroke();
+
+  // Draw hanging mass
+  if(drawTop < floor) {
+    ctx.fillStyle='blue';
+    ctx.fillRect(P_string_pulley_exit_x - massWidth/2, drawTop, massWidth, massHeight);
+    // Label Mass 2
+    ctx.fillStyle = 'white'; // Text color
+    ctx.font = '14px Arial'; // Font size and family
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('2', P_string_pulley_exit_x, drawTop + massHeight / 2);
+  }
+}
+
+function stepTable(ts,baseY){if(!anim)return;
+ const g0=geom();
+ const {scale, pulleyTableRadius, massHeight, floor, tableRightX, cartStartXOffset, cartWidth, tableLeftX, epsilonMeters, hangingMassInitialDangleMeters, cartHeight, wheelRadius, wheelOffsetFromCartBottom, cartLift, pulleyTableExtOffset} = g0;
+ if(lastTS===null)lastTS=ts;drawTable(pos,baseY);
+ let dt=(ts-lastTS)/1000;if(dt<=0||dt>0.5){anim=requestAnimationFrame(n=>stepTable(n,baseY));return;}
+ lastTS=ts;dt=Math.min(dt,.1);const a=mode==='real'?acc*(1+(Math.random()-.5)*.16):acc;
+ vel+=a*dt;pos+=vel*dt+0.5*a*dt*dt;t+=dt;
+ angle+=(vel*dt)/pulleyTableRadius; // Corrected angle calculation
+ lastAcc=a;lastVel=vel;
+ if(t-posChart.data.labels[posChart.data.labels.length-1]>=.05)logPt();
+
+ // Calculate stop conditions
+ // Max displacement for cart (cart's right edge reaches table end)
+ const maxDispMeters = (tableRightX - cartStartXOffset - cartWidth) / scale;
+ // Max displacement for hanging mass (mass's bottom hits floor)
+ // Pulley Y position depends on table height (baseY)
+ const ang=parseFloat($('angR').value)*Math.PI/180;
+ const tableTopLeftY = baseY; // Define tableTopLeftY here
+ const tableTopRightY = baseY + (tableRightX - tableLeftX) * Math.tan(ang);
+
+ // Recalculate pulleyY based on the new logic in drawTable
+ // This is a bit redundant but necessary for stop condition if pulleyY is not a global state
+ const currentCartX = cartStartXOffset + pos * scale * Math.cos(ang); // Use current pos
+ const cartBottomYOnTable = tableTopLeftY + (currentCartX - tableLeftX) * Math.tan(ang);
+ const currentCartCenterY = cartBottomYOnTable - (cartHeight / 2 + wheelRadius + wheelOffsetFromCartBottom + cartLift); // cartLift is now from geom()
+
+ // Calculate cart's global attachment point (middle of the right face)
+ const local_attach_x_step = cartWidth / 2;
+ const local_attach_y_step = 0; // Middle of the cart's height
+
+ const cartAttachX = currentCartX + (local_attach_x_step * Math.cos(ang) - local_attach_y_step * Math.sin(ang));
+ const cartAttachY = currentCartCenterY + (local_attach_x_step * Math.sin(ang) + local_attach_y_step * Math.cos(ang));
+
+ const stringYAtPulleyX = cartAttachY + Math.tan(ang) * (tableRightX + pulleyTableExtOffset - cartAttachX);
+ const pulleyY = stringYAtPulleyX - pulleyTableRadius * Math.sin(ang - Math.PI / 2);
+
+
+ const maxDropMeters = (floor - massHeight - pulleyY) / scale + epsilonMeters - hangingMassInitialDangleMeters; // Account for initial dangle
+
+ updateInfoDisplay(lastAcc, lastVel, netF, 'Running');
+ if(pos>=maxDispMeters||pos>=maxDropMeters){updateInfoDisplay(lastAcc, lastVel, netF, 'Stopped');anim=null;return;}
+ anim=requestAnimationFrame(n=>stepTable(n,baseY));}
+
+/* —— boot —— */
+addEventListener('DOMContentLoaded', () => {
+  // Bind range and number inputs
+  function bind(r,n){
+    $(r).oninput=e=>{
+      $(n).value=e.target.value;
+      // Trigger canvas dimension update for relevant sliders
+      if (['hTblR', 'hPulR', 'angR'].includes(r)) { // Added 'angR' as it affects table height
+        updateCanvasDimensions();
+      } else {
+        !anim&&drawStatic();
+      }
+    }
+    $(n).oninput=e=>{
+      let v=parseFloat(e.target.value)||parseFloat($(n).min);
+      v=Math.max(Math.min(v,parseFloat($(n).max)),parseFloat($(n).min));$(n).value=v;$(r).value=v;
+      // Trigger canvas dimension update for relevant number inputs
+      if (['hTblN', 'hPulN', 'angN'].includes(n)) { // Added 'angN'
+        updateCanvasDimensions();
+      } else {
+        !anim&&drawStatic();
+      }
+    }
+  }
+  [['hTblR','hTblN'],['mCartR','mCartN'],['mHangR','mHangN'],['muR','muN'],['angR','angN'],
+   ['hPulR','hPulN'],['m1R','m1N'],['m2R','m2N']].forEach(([r,n])=>bind(r,n));
+
+  // Bind gravity selection
+  $('gSel').onchange=e=>{const v=e.target.value;$('gCust').style.display=v==='custom'?'block':'none';
+    g=v==='custom'?parseFloat($('gCust').value)||9.81:parseFloat(v);!anim&&drawStatic();}
+  $('gCust').oninput=e=>{$('gSel').value==='custom'&&(g=parseFloat(e.target.value)||9.81,!anim&&drawStatic());}
+
+  // Bind simulation selection
+  $('simSel').onchange=e=>{
+    sim=e.target.value;
+    $('tableCtrls').style.display=sim==='table'?'block':'none';
+    $('atCtrls').style.display=sim==='atwood'?'block':'none';
+    initializeCharts(); // Re-initialize charts on sim change
+    updateCanvasDimensions(); // Call for simulation type change
+  }
+
+  // Set initial mode button text based on the default 'mode' variable
+  $('modeBtn').textContent = 'Mode: ' + (mode === 'perfect' ? 'Perfect' : 'Real');
+
+  // Bind mode button
+  $('modeBtn').onclick=()=>{
+    mode=mode==='perfect'?'real':'perfect';
+    $('modeBtn').textContent='Mode: '+(mode==='perfect'?'Perfect':'Real');
+  }
+
+  // Initialize charts after DOM elements are ready
+  initializeCharts();
+
+  // Bind start button
+  $('startBtn').onclick=()=>{
+    if(anim){cancelAnimationFrame(anim);anim=null;} // Stop any existing animation
+    t=pos=vel=angle=0;lastTS=null;
+    [posChart,velChart,accChart].forEach(c=>{c.data.labels=[0];c.data.datasets[0].data=[0];c.update('none');}); // Reset charts
+    if(sim==='table'){
+      const g0=geom(),h=parseFloat($('hTblR').value),mC=parseFloat($('mCartR').value),mH=parseFloat($('mHangR').value),
+            mu=parseFloat($('muR').value),ang=parseFloat($('angR').value)*Math.PI/180,total=mC+mH;
+      netF=Math.max(0,mH*g+mC*g*Math.sin(ang)-mu*mC*g*Math.cos(ang));
+      acc=total?netF/total:0;
+      accChart.data.datasets[0].data[0]=acc;
+      [posChart,velChart,accChart].forEach(c=>c.update());
+      const baseY=geom().floor-h*geom().scale;
+      anim=requestAnimationFrame(ts=>stepTable(ts,baseY));
+    }else{
+      const h=parseFloat($('hPulR').value),m1=parseFloat($('m1R').value),m2=parseFloat($('m2R').value);
+      netF=Math.abs(m2-m1)*g;
+      acc=((m2-m1)/(m1+m2))*g;
+      accChart.data.datasets[0].data[0]=acc;
+      [posChart,velChart,accChart].forEach(c=>c.update());
+      anim=requestAnimationFrame(ts=>stepAtwood(ts,h));
+    }
+    lastAcc=acc;lastVel=0;
+    updateInfoDisplay(lastAcc, lastVel, netF, 'Running'); // Update info on start
+  };
+
+  // Stop/Reset button logic
+  $('stopResetBtn').onclick=()=>{
+    if(anim){ // If simulation is running, stop it
+      cancelAnimationFrame(anim);
+      anim=null;
+      updateInfoDisplay(lastAcc, lastVel, netF, 'Stopped'); // Update info on stop
+      $('stopResetBtn').textContent='Reset';
+    } else { // If simulation is stopped, reset it
+      t=pos=vel=angle=0;lastTS=null;
+      [posChart,velChart,accChart].forEach(c=>{c.data.labels=[0];c.data.datasets[0].data=[0];c.update('none');});
+      drawStatic(); // Redraw static scene
+      updateInfoDisplay(0, 0, 0, 'Ready'); // Reset info display
+      $('stopResetBtn').textContent='Stop/Reset'; // Reset button text
+    }
+  };
+
+  // Initial draw call and canvas dimension update after everything is set up
+  updateCanvasDimensions(); // Call after charts are initialized and controls are bound
+});
+
+// Add resize listener here, ensuring updateCanvasDimensions is called
+addEventListener('resize',()=>{updateCanvasDimensions();});
+</script>
+</body>
+</html>
