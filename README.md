@@ -2,6 +2,8 @@
 
 A web-based interactive simulation playground built with HTML, CSS, and JavaScript, demonstrating Newton's Second Law ($F=ma$) through two classic physics scenarios: an Inclined Table with a hanging mass, and an Atwood Machine. The simulation allows users to adjust various parameters and visualize the resulting motion through animated graphics and real-time data plots.
 
+https://atreyuartax.github.io/N2L-Pulley-Simulation/N2L_Table.html
+
 ## Features
 
 * **Two Simulation Modes:**
