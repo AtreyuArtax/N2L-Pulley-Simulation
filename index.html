@@ -162,7 +162,6 @@ button:active{
 
       <!-- double incline ctrls -->
       <div id="doubleCtrls" style="display:none">
-        <div class="group"><label>Pulley height (m)</label><div class="row"><input type="range" id="dblHPulR" min="1" max="6" step="0.1" value="3"><input id="dblHPulN" type="number" value="3" min="1" max="6" step="0.1"></div></div>
         <div class="group"><label>Left block mass (kg)</label><div class="row"><input type="range" id="mLeftR" min="0" max="10" step="0.1" value="1"><input id="mLeftN" type="number" value="1" min="0" max="10" step="0.1"></div></div>
         <div class="group"><label>Right block mass (kg)</label><div class="row"><input type="range" id="mRightR" min="0" max="10" step="0.1" value="1"><input id="mRightN" type="number" value="1" min="0" max="10" step="0.1"></div></div>
         <div class="group"><label>Left incline angle (°)</label><div class="row"><input type="range" id="dblAngL" min="-30" max="30" step="1" value="10"><input id="dblAngLN" type="number" value="10" min="-30" max="30" step="1"></div></div>
@@ -363,10 +362,11 @@ function logPt(){
 }
 
 // Function to update the info display
-function updateInfoDisplay(accVal, velVal, netFVal, statusText) {
-  $('infoAcc').textContent = accVal.toFixed(2);
+function updateInfoDisplay(accVal, velVal, netFVal, statusText, dirLabel = '') {
+  const label = dirLabel ? ` ${dirLabel}` : '';
+  $('infoAcc').textContent = `${accVal.toFixed(2)}${label}`;
   $('infoVel').textContent = velVal.toFixed(2);
-  $('infoNetF').textContent = netFVal.toFixed(2);
+  $('infoNetF').textContent = `${netFVal.toFixed(2)}${label}`;
   $('infoStatus').textContent = statusText;
 }
 
@@ -409,6 +409,10 @@ function calculateContentHeightFromFloor() {
     // Consider the cart's height above the table surface
     highestElementY_from_floor_px = Math.max(highestElementY_from_floor_px, maxTableSurfaceHeight_from_floor + CART_HEIGHT);
 
+  } else if (sim === 'double') {
+    const PULLEY_ATWOOD_RADIUS = 15; // same size
+    const PULLEY_H_M = 3; // fixed pulley height in meters
+    highestElementY_from_floor_px = (PULLEY_H_M * PIXELS_PER_METER) + PULLEY_ATWOOD_RADIUS + 30; // include block size margin
   } else { // atwood
     const hPul_m = parseFloat($('hPulR').value); // This is the height from the floor to the pulley's center in meters
     const PULLEY_ATWOOD_RADIUS = 15;
@@ -457,9 +461,9 @@ function drawStatic(){
   } else if(sim==='atwood'){
     drawAtwood(0,parseFloat($('hPulR').value));
   } else if(sim==='double'){
-    drawDouble(0,parseFloat($('dblHPulR').value));
+    drawDouble(0);
   }
-  updateInfoDisplay(0, 0, 0, 'Ready'); // Reset info display
+  updateInfoDisplay(0, 0, 0, 'Ready', ''); // Reset info display
 }
 
 function drawAtwood(d, height){
@@ -600,9 +604,9 @@ function stepAtwood(ts,height){if(!anim)return;
    if (pos <= maxNegDisp_M2_pulley) stopSim = true; // M2 hits pulley (pos negative means M2 moves up)
  }
 
- updateInfoDisplay(lastAcc, lastVel, netF, 'Running');
+ updateInfoDisplay(lastAcc, lastVel, netF, 'Running', '');
  if(stopSim){
-    updateInfoDisplay(lastAcc, lastVel, netF, 'Stopped');
+  updateInfoDisplay(lastAcc, lastVel, netF, 'Stopped', '');
     anim=null;
     return;
  }
@@ -795,15 +799,18 @@ function stepTable(ts,baseY){if(!anim)return;
 
  const maxDropMeters = (floor - massHeight - pulleyY) / scale + epsilonMeters - hangingMassInitialDangleMeters; // Account for initial dangle
 
- updateInfoDisplay(lastAcc, lastVel, netF, 'Running');
- if(pos>=maxDispMeters||pos>=maxDropMeters){updateInfoDisplay(lastAcc, lastVel, netF, 'Stopped');anim=null;return;}
+ updateInfoDisplay(lastAcc, lastVel, netF, 'Running', '');
+ if(pos>=maxDispMeters||pos>=maxDropMeters){updateInfoDisplay(lastAcc, lastVel, netF, 'Stopped', '');anim=null;return;}
  anim=requestAnimationFrame(n=>stepTable(n,baseY));}
 
-function drawDouble(d, height){
+function drawDouble(d){
   const g0=geom();
   const {floor, scale, canvasWidth} = g0;
   const pulleyX = canvasWidth/2;
-  const pulleyY = floor - height * scale;
+  // Fixed pulley height (meters from floor)
+  const PULLEY_H_M = 3;
+  const pulleyY = floor - PULLEY_H_M * scale;
+  const BEAM_HALF = 4; // half of beam thickness (lineWidth ~8)
 
   // Read params
   const mL = parseFloat($('mLeftN').value);
@@ -825,10 +832,10 @@ function drawDouble(d, height){
   // ground
   ctx.fillStyle='#8d6e63'; ctx.fillRect(0,floor,g0.canvasWidth,30);
 
-  // Draw left incline line from pulley to left end
+  // Draw left incline line from pulley to left end (thicker for visibility)
   const leftEndX = pulleyX - leftMaxMeters*scale*Math.cos(angL);
   const leftEndY = pulleyY + leftMaxMeters*scale*Math.sin(angL);
-  ctx.strokeStyle='#8d6e63'; ctx.lineWidth=6; ctx.beginPath(); ctx.moveTo(leftEndX,leftEndY); ctx.lineTo(pulleyX,pulleyY); ctx.stroke();
+  ctx.strokeStyle='#8d6e63'; ctx.lineWidth=8; ctx.beginPath(); ctx.moveTo(leftEndX,leftEndY); ctx.lineTo(pulleyX,pulleyY); ctx.stroke();
 
   // Draw right incline
   const rightEndX = pulleyX + rightMaxMeters*scale*Math.cos(angR);
@@ -838,35 +845,123 @@ function drawDouble(d, height){
   // Pulley
   ctx.fillStyle='#bdbdbd'; ctx.beginPath(); ctx.arc(pulleyX,pulleyY,15,0,Math.PI*2); ctx.fill();
 
-  // Left block position
-  const lbx = pulleyX - leftPosMeters*scale*Math.cos(angL);
-  const lby = pulleyY + leftPosMeters*scale*Math.sin(angL);
-  ctx.fillStyle='darkorange'; ctx.fillRect(lbx-15,lby-15,30,30);
-  ctx.fillStyle='white'; ctx.font='14px Arial'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('L',lbx,lby);
+  // Block half size (px) and surface normals
+  const half = 15, R = 15;
+  const nLx = -Math.sin(angL), nLy = Math.cos(angL);
+  const nRx = -Math.sin(angR), nRy = Math.cos(angR);
 
-  // Right block position
-  const rbx = pulleyX + rightPosMeters*scale*Math.cos(angR);
-  const rby = pulleyY + rightPosMeters*scale*Math.sin(angR);
-  ctx.fillStyle='blue'; ctx.fillRect(rbx-15,rby-15,30,30);
-  ctx.fillStyle='white'; ctx.fillText('R',rbx,rby);
+  // Left block: attach rope to block center, but draw from edge along the incline (so rope is parallel to incline)
+  // (nLx, nLy) already declared above, so reuse)
+  const lbx_line = pulleyX - leftPosMeters*scale*Math.cos(angL);
+  const lby_line = pulleyY + leftPosMeters*scale*Math.sin(angL);
+  // Block center, offset so block sits on the incline
+  const lbx = lbx_line - nLx*(half+BEAM_HALF), lby = lby_line - nLy*(half+BEAM_HALF);
+  const lcx = lbx, lcy = lby;
+  // Rope leaves block center, but visually starts at the edge along the incline toward the pulley
+  // Direction from left block to pulley along the incline is uL = (cos angL, -sin angL)
+  const uLx = Math.cos(angL), uLy = -Math.sin(angL);
+  const lEdgeX = lcx + half * uLx;
+  const lEdgeY = lcy + half * uLy;
+  ctx.save();
+  ctx.translate(lbx,lby);
+  // Mirror the right‑side logic: left block rotates opposite sign so faces align with the leftward incline
+  ctx.rotate(-angL);
+  ctx.fillStyle='darkorange';
+  ctx.fillRect(-15,-15,30,30);
+  // Upright label
+  ctx.fillStyle='white'; ctx.font='14px Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  // Keep label upright
+  ctx.save(); ctx.rotate(angL); ctx.fillText('L',0,0); ctx.restore();
+  ctx.restore();
 
-  // Rope
-  ctx.strokeStyle='#424242'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(lbx,lby); ctx.lineTo(pulleyX,pulleyY); ctx.arc(pulleyX,pulleyY,15,Math.PI,0,false); ctx.lineTo(rbx,rby); ctx.stroke();
+  // Right block center
+  const rbx_line = pulleyX + rightPosMeters*scale*Math.cos(angR);
+  const rby_line = pulleyY + rightPosMeters*scale*Math.sin(angR);
+  // Right block: attach rope to block center, but draw from edge toward pulley
+  const rbx = rbx_line - nRx*(half+BEAM_HALF), rby = rby_line - nRy*(half+BEAM_HALF);
+  const rcx = rbx, rcy = rby;
+  // Direction from right block to pulley along the incline is uR = (-cos angR, -sin angR)
+  const uRx = -Math.cos(angR), uRy = -Math.sin(angR);
+  const rEdgeX = rcx + half * uRx;
+  const rEdgeY = rcy + half * uRy;
+  ctx.save();
+  ctx.translate(rbx,rby);
+  ctx.rotate(angR);
+  ctx.fillStyle='blue';
+  ctx.fillRect(-15,-15,30,30);
+  // Upright label
+  ctx.fillStyle='white'; ctx.font='14px Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.save(); ctx.rotate(-angR); ctx.fillText('R',0,0); ctx.restore();
+  ctx.restore();
+
+  // Rope: draw as three segments for a continuous look
+  function normAngle(a){ const p = Math.PI*2; a = a%p; return a<0?a+p:a; }
+  function angDist(a,b){ const p=Math.PI*2; let d=normAngle(a)-normAngle(b); d=(d+p)%p; if(d>Math.PI) d-=p; return Math.abs(d); }
+
+  // Tangent points computed from block centers (true geometric tangents)
+  function pickTangent(px,py, prefUx, prefUy){
+    const dx = px - pulleyX, dy = py - pulleyY; const d = Math.hypot(dx,dy);
+    const base = Math.atan2(dy,dx);
+    const delta = Math.acos(Math.min(1, Math.max(-1, R/d)));
+    const a1 = base + delta, a2 = base - delta; // radius angles to tangent points
+    const t1x = pulleyX + R*Math.cos(a1), t1y = pulleyY + R*Math.sin(a1);
+    const t2x = pulleyX + R*Math.cos(a2), t2y = pulleyY + R*Math.sin(a2);
+    const v1x = px - t1x, v1y = py - t1y; const v1n = Math.hypot(v1x,v1y)||1; const u1x=v1x/v1n, u1y=v1y/v1n;
+    const v2x = px - t2x, v2y = py - t2y; const v2n = Math.hypot(v2x,v2y)||1; const u2x=v2x/v2n, u2y=v2y/v2n;
+    const dot1 = Math.abs(u1x*prefUx + u1y*prefUy);
+    const dot2 = Math.abs(u2x*prefUx + u2y*prefUy);
+    // choose tangent whose line direction best matches preferred direction
+    if(dot1>=dot2) return {ax:a1, tx:t1x, ty:t1y};
+    return {ax:a2, tx:t2x, ty:t2y};
+  }
+  // Preferred directions along inclines toward pulley
+  const tL = pickTangent(lcx,lcy, uLx,uLy);
+  const tR = pickTangent(rcx,rcy, uRx,uRy);
+  const alphaL = tL.ax, alphaR = tR.ax; const tLx=tL.tx, tLy=tL.ty, tRx=tR.tx, tRy=tR.ty;
+
+  // Arc direction: prefer the shorter arc that passes near the top
+  const topAngle = normAngle(-Math.PI/2);
+  const s = normAngle(alphaL), e = normAngle(alphaR);
+  const cwSweep = (e - s + Math.PI*2) % (Math.PI*2);
+  const ccwSweep = (s - e + Math.PI*2) % (Math.PI*2);
+  const cwMid = normAngle(s + cwSweep/2);
+  const ccwMid = normAngle(s - ccwSweep/2);
+  const cwScore = angDist(cwMid, topAngle) + (cwSweep>Math.PI?10:0);
+  const ccwScore = angDist(ccwMid, topAngle) + (ccwSweep>Math.PI?10:0);
+  const useCCW = ccwScore < cwScore;
+
+  ctx.strokeStyle='#424242'; ctx.lineWidth=2;
+  // Left straight segment (from block edge)
+  ctx.beginPath();
+  ctx.moveTo(lEdgeX, lEdgeY);
+  ctx.lineTo(tLx, tLy);
+  ctx.stroke();
+  // Arc over pulley
+  ctx.beginPath();
+  ctx.arc(pulleyX, pulleyY, R, alphaL, alphaR, useCCW);
+  ctx.stroke();
+  // Right straight segment (to block edge)
+  ctx.beginPath();
+  ctx.moveTo(tRx, tRy);
+  ctx.lineTo(rEdgeX, rEdgeY);
+  ctx.stroke();
 }
 
-function stepDouble(ts,height){if(!anim)return;const g0=geom();const {scale,floor} = g0;if(lastTS===null)lastTS=ts;drawDouble(pos,height);
-  let dt=(ts-lastTS)/1000;if(dt<=0||dt>0.5){anim=requestAnimationFrame(n=>stepDouble(n,height));return;}lastTS=ts;dt=Math.min(dt,.1);
+function stepDouble(ts){if(!anim)return;const g0=geom();const {scale,floor} = g0;if(lastTS===null)lastTS=ts;drawDouble(pos);
+  let dt=(ts-lastTS)/1000;if(dt<=0||dt>0.5){anim=requestAnimationFrame(n=>stepDouble(n));return;}lastTS=ts;dt=Math.min(dt,.1);
   const a = mode==='real'?acc*(1+(Math.random()-.5)*.16):acc;
   vel += a*dt; pos += vel*dt + 0.5*a*dt*dt; t += dt;
   lastAcc = a; lastVel = vel; if(t-posChart.data.labels[posChart.data.labels.length-1]>=.05)logPt();
 
-  // Stop conditions: blocks reach end of their visual inclines
+  // Stop conditions: blocks reach end of their visual inclines, with a stop before the pulley
   const pulleyX = g0.canvasWidth/2; const leftMaxMeters = Math.max(1, (pulleyX - 60)/scale); const rightMaxMeters = Math.max(1, (g0.canvasWidth - pulleyX - 60)/scale);
-  const maxPos = Math.min(leftMaxMeters/2, rightMaxMeters/2); // limit magnitude of pos
-  if(Math.abs(pos) >= maxPos){ updateInfoDisplay(lastAcc, lastVel, netF, 'Stopped'); anim=null; return; }
+  const stopGap = 0.22; // meters, stop this far from pulley (block half width + margin)
+  const maxPos = Math.min(leftMaxMeters/2, rightMaxMeters/2) - stopGap;
+  const dirLabel = netF < 0 ? '[left]' : (netF > 0 ? '[right]' : '');
+  if(Math.abs(pos) >= maxPos){ updateInfoDisplay(Math.abs(lastAcc), Math.abs(lastVel), Math.abs(netF), 'Stopped', dirLabel); anim=null; return; }
 
-  updateInfoDisplay(lastAcc, Math.abs(lastVel), netF, 'Running');
-  anim=requestAnimationFrame(n=>stepDouble(n,height));}
+  updateInfoDisplay(Math.abs(lastAcc), Math.abs(lastVel), Math.abs(netF), 'Running', dirLabel);
+  anim=requestAnimationFrame(n=>stepDouble(n));}
 
 /* —— boot —— */
 addEventListener('DOMContentLoaded', () => {
@@ -875,7 +970,7 @@ addEventListener('DOMContentLoaded', () => {
     $(r).oninput=e=>{
       $(n).value=e.target.value;
       // Trigger canvas dimension update for relevant sliders
-      if (['hTblR', 'hPulR', 'angR', 'dblHPulR', 'dblAngL', 'dblAngR'].includes(r)) { // include double incline controls
+      if (['hTblR', 'hPulR', 'angR', 'dblAngL', 'dblAngR'].includes(r)) { // include double incline controls
         updateCanvasDimensions();
       } else {
         !anim&&drawStatic();
@@ -885,7 +980,7 @@ addEventListener('DOMContentLoaded', () => {
       let v=parseFloat(e.target.value)||parseFloat($(n).min);
       v=Math.max(Math.min(v,parseFloat($(n).max)),parseFloat($(n).min));$(n).value=v;$(r).value=v;
       // Trigger canvas dimension update for relevant number inputs
-      if (['hTblN', 'hPulN', 'angN', 'dblHPulN', 'dblAngLN', 'dblAngRN'].includes(n)) { // include double inputs
+      if (['hTblN', 'hPulN', 'angN', 'dblAngLN', 'dblAngRN'].includes(n)) { // include double inputs
         updateCanvasDimensions();
       } else {
         !anim&&drawStatic();
@@ -894,7 +989,7 @@ addEventListener('DOMContentLoaded', () => {
   }
   [['hTblR','hTblN'],['mCartR','mCartN'],['mHangR','mHangN'],['muR','muN'],['angR','angN'],
    ['hPulR','hPulN'],['m1R','m1N'],['m2R','m2N'],
-   ['dblHPulR','dblHPulN'],['mLeftR','mLeftN'],['mRightR','mRightN'],['dblAngL','dblAngLN'],['dblAngR','dblAngRN'],
+   ['mLeftR','mLeftN'],['mRightR','mRightN'],['dblAngL','dblAngLN'],['dblAngR','dblAngRN'],
    ['muL_R','muL_N'],['muR_R','muR_N']].forEach(([r,n])=>bind(r,n));
 
   // Keep muR synced to muL when link checkbox is checked
@@ -946,19 +1041,23 @@ addEventListener('DOMContentLoaded', () => {
   // Keep the lock that only allows rightward motion
   netF = Math.max(0, netF);
   acc = total ? netF / total : 0;
+      lastAcc = acc; lastVel = 0;
       accChart.data.datasets[0].data[0]=acc;
       [posChart,velChart,accChart].forEach(c=>c.update());
+      updateInfoDisplay(lastAcc, lastVel, netF, 'Running', '');
       const baseY=geom().floor-h*geom().scale;
       anim=requestAnimationFrame(ts=>stepTable(ts,baseY));
     }else if(sim==='atwood'){
       const h=parseFloat($('hPulR').value),m1=parseFloat($('m1R').value),m2=parseFloat($('m2R').value);
       netF=Math.abs(m2-m1)*g;
       acc=((m2-m1)/(m1+m2))*g;
+      lastAcc = acc; lastVel = 0;
       accChart.data.datasets[0].data[0]=acc;
       [posChart,velChart,accChart].forEach(c=>c.update());
+      updateInfoDisplay(lastAcc, lastVel, netF, 'Running', '');
       anim=requestAnimationFrame(ts=>stepAtwood(ts,h));
     }else if(sim==='double'){
-      const h=parseFloat($('dblHPulR').value), mL=parseFloat($('mLeftN').value), mR=parseFloat($('mRightN').value),
+      const mL=parseFloat($('mLeftN').value), mR=parseFloat($('mRightN').value),
             angL=parseFloat($('dblAngLN').value)*Math.PI/180, angR=parseFloat($('dblAngRN').value)*Math.PI/180,
             muL=parseFloat($('muL_N').value), muR=parseFloat($('muR_N').value);
       // Positive netF means right block tends to move down (clockwise)
@@ -967,12 +1066,13 @@ addEventListener('DOMContentLoaded', () => {
       netF = gravityTerm - frictionTerm; // allow negative (bidirectional)
       const total = mL + mR;
       acc = total ? netF / total : 0;
+      lastAcc = acc; lastVel = 0;
       accChart.data.datasets[0].data[0]=acc;
       [posChart,velChart,accChart].forEach(c=>c.update());
-      anim=requestAnimationFrame(ts=>stepDouble(ts,h));
+      const dirLabel = netF < 0 ? '[left]' : (netF > 0 ? '[right]' : '');
+      updateInfoDisplay(Math.abs(lastAcc), lastVel, Math.abs(netF), 'Running', dirLabel);
+      anim=requestAnimationFrame(ts=>stepDouble(ts));
     }
-    lastAcc=acc;lastVel=0;
-    updateInfoDisplay(lastAcc, lastVel, netF, 'Running'); // Update info on start
   };
 
   // Stop/Reset button logic
@@ -980,13 +1080,18 @@ addEventListener('DOMContentLoaded', () => {
     if(anim){ // If simulation is running, stop it
       cancelAnimationFrame(anim);
       anim=null;
-      updateInfoDisplay(lastAcc, lastVel, netF, 'Stopped'); // Update info on stop
+      if (sim==='double') {
+        const dirLabel = netF < 0 ? '[left]' : (netF > 0 ? '[right]' : '');
+        updateInfoDisplay(Math.abs(lastAcc), Math.abs(lastVel), Math.abs(netF), 'Stopped', dirLabel); // Update info on stop
+      } else {
+        updateInfoDisplay(lastAcc, lastVel, netF, 'Stopped', ''); // Update info on stop
+      }
       $('stopResetBtn').textContent='Reset';
     } else { // If simulation is stopped, reset it
       t=pos=vel=angle=0;lastTS=null;
       [posChart,velChart,accChart].forEach(c=>{c.data.labels=[0];c.data.datasets[0].data=[0];c.update('none');});
       drawStatic(); // Redraw static scene
-      updateInfoDisplay(0, 0, 0, 'Ready'); // Reset info display
+      updateInfoDisplay(0, 0, 0, 'Ready', ''); // Reset info display
       $('stopResetBtn').textContent='Stop/Reset'; // Reset button text
     }
   };
