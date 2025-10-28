@@ -833,10 +833,17 @@ addEventListener('DOMContentLoaded', () => {
     t=pos=vel=angle=0;lastTS=null;
     [posChart,velChart,accChart].forEach(c=>{c.data.labels=[0];c.data.datasets[0].data=[0];c.update('none');}); // Reset charts
     if(sim==='table'){
-      const g0=geom(),h=parseFloat($('hTblR').value),mC=parseFloat($('mCartR').value),mH=parseFloat($('mHangR').value),
-            mu=parseFloat($('muR').value),ang=parseFloat($('angR').value)*Math.PI/180,total=mC+mH;
-      netF=Math.max(0,mH*g+mC*g*Math.sin(ang)-mu*mC*g*Math.cos(ang));
-      acc=total?netF/total:0;
+  const g0=geom(),h=parseFloat($('hTblR').value),mC=parseFloat($('mCartR').value),mH=parseFloat($('mHangR').value),
+    mu=parseFloat($('muR').value),ang=parseFloat($('angR').value)*Math.PI/180,total=mC+mH;
+  // Correct net force: hanging mass pulls down; resisting forces are the component of gravity on the cart along the incline plus friction
+  const gravityPull = mH * g;
+  // For our angle convention: negative angle means the table slopes up to the right
+  // so the cart's gravity component reduces the rightward pull when ang < 0.
+  const resisting = -mC * g * Math.sin(ang) + mu * mC * g * Math.cos(ang);
+  netF = gravityPull - resisting; // may be negative if system would move left
+  // Keep the lock that only allows rightward motion
+  netF = Math.max(0, netF);
+  acc = total ? netF / total : 0;
       accChart.data.datasets[0].data[0]=acc;
       [posChart,velChart,accChart].forEach(c=>c.update());
       const baseY=geom().floor-h*geom().scale;
