@@ -136,13 +136,13 @@ button:active{
       <div class="group"><label>Simulation</label><select id="simSel">
         <option value="table" selected>Inclined Table</option>
         <option value="atwood">Atwood Machine</option>
-        <option value="double">Double Incline (pulley at peak)</option>
+        <option value="double">Double Incline</option>
       </select></div>
       <div class="group"><label>Gravity</label><select id="gSel">
-        <option value="9.81" selected>Earth (9.81)</option><option value="1.62">Moon (1.62)</option>
+        <option value="9.8" selected>Earth (9.8)</option><option value="1.6">Moon (1.6)</option>
         <option value="3.71">Mars (3.71)</option><option value="24.79">Jupiter (24.79)</option>
         <option value="custom">Custom…</option></select>
-        <input id="gCust" type="number" step="0.01" value="9.81" style="display:none;margin-top:.4rem;width:100%"></div>
+        <input id="gCust" type="number" step="0.01" value="9.8" style="display:none;margin-top:.4rem;width:100%"></div>
 
       <!-- table ctrls -->
       <div id="tableCtrls">
@@ -166,12 +166,12 @@ button:active{
         <div class="group"><label>Right block mass (kg)</label><div class="row"><input type="range" id="mRightR" min="0" max="10" step="0.1" value="1"><input id="mRightN" type="number" value="1" min="0" max="10" step="0.1"></div></div>
         <div class="group"><label>Left incline angle (°)</label><div class="row"><input type="range" id="dblAngL" min="-30" max="30" step="1" value="10"><input id="dblAngLN" type="number" value="10" min="-30" max="30" step="1"></div></div>
         <div class="group"><label>Right incline angle (°)</label><div class="row"><input type="range" id="dblAngR" min="-30" max="30" step="1" value="10"><input id="dblAngRN" type="number" value="10" min="-30" max="30" step="1"></div></div>
-        <div class="group"><label>Friction μ (linkable)</label>
+        <div class="group"><label>Friction μ (left)</label>
           <div class="row">
             <input type="range" id="muL_R" min="0" max="1" step="0.01" value="0"><input id="muL_N" type="number" value="0" min="0" max="1" step="0.01">
-            <input type="checkbox" id="muLink" title="Link frictions" checked style="margin-left:.5rem"> <label for="muLink" style="margin:0">link</label>
+            <input type="checkbox" id="muLink" title="Link frictions" checked style="margin-left:.5rem"> <label for="muLink" style="margin:0">friction linked</label>
           </div>
-          <div class="row" style="margin-top:.5rem"><label style="width:110px">Right friction</label><input type="range" id="muR_R" min="0" max="1" step="0.01" value="0"><input id="muR_N" type="number" value="0" min="0" max="1" step="0.01"></div>
+          <div class="row" style="margin-top:.5rem"><label style="width:110px">Friction μ (right)</label><input type="range" id="muR_R" min="0" max="1" step="0.01" value="0"><input id="muR_N" type="number" value="0" min="0" max="1" step="0.01"></div>
         </div>
       </div>
 
@@ -293,7 +293,7 @@ function geom(){
 }
 
 /* —— state —— */
-let sim='table',mode='real',g=9.81,t=0,pos=0,vel=0,acc=0,netF=0,lastTS=null,angle=0,anim=null,lastAcc=0,lastVel=0;
+let sim='table',mode='real',g=9.8,t=0,pos=0,vel=0,acc=0,netF=0,lastTS=null,angle=0,anim=null,lastAcc=0,lastVel=0,chartSign=1;
 
 /* —— DOM bindings (helper function) —— */
 const $=id=>document.getElementById(id);
@@ -355,9 +355,13 @@ function initializeCharts() {
 function logPt(){
   // Safety check to ensure charts are initialized before use
   if (!posChart || !velChart || !accChart) return;
-  posChart.data.labels.push(t);posChart.data.datasets[0].data.push(pos);
-  velChart.data.labels.push(t);velChart.data.datasets[0].data.push(vel);
-  accChart.data.labels.push(t);accChart.data.datasets[0].data.push(lastAcc);
+  // Always plot positive in the direction of motion/acceleration
+  const p = Math.abs(chartSign * pos);
+  const v = Math.abs(chartSign * vel);
+  const a = Math.abs(chartSign * lastAcc);
+  posChart.data.labels.push(t);posChart.data.datasets[0].data.push(p);
+  velChart.data.labels.push(t);velChart.data.datasets[0].data.push(v);
+  accChart.data.labels.push(t);accChart.data.datasets[0].data.push(a);
   [posChart,velChart,accChart].forEach(c=>c.update('none'));
 }
 
@@ -453,7 +457,7 @@ function updateCanvasDimensions() {
 function drawStatic(){
   // Safety check to ensure charts are initialized before use
   if (!posChart || !velChart || !accChart) return;
-  t=pos=vel=angle=0;lastAcc=lastVel=netF=0;
+  t=pos=vel=angle=0;lastAcc=lastVel=netF=0;chartSign=1;
   [posChart,velChart,accChart].forEach(c=>{c.data.labels=[0];c.data.datasets[0].data=[0];c.update('none');});
   if(sim==='table'){
     const baseY=geom().floor-parseFloat($('hTblR').value)*geom().scale;
@@ -996,11 +1000,14 @@ addEventListener('DOMContentLoaded', () => {
   $('muLink').onchange = e => { if(e.target.checked) { $('muR_R').value = $('muL_R').value; $('muR_N').value = $('muL_N').value; !anim&&drawStatic(); } }
   $('muL_R').oninput = e => { $('muL_N').value = e.target.value; if($('muLink').checked){ $('muR_R').value = e.target.value; $('muR_N').value = e.target.value; } !anim&&drawStatic(); }
   $('muL_N').oninput = e => { let v=parseFloat(e.target.value)||0; v=Math.max(Math.min(v,parseFloat($('muL_N').max)),parseFloat($('muL_N').min)); $('muL_N').value=v; $('muL_R').value=v; if($('muLink').checked){ $('muR_R').value=v; $('muR_N').value=v; } !anim&&drawStatic(); }
+  // Mirror right->left when linked, so either slider controls both when checked
+  $('muR_R').oninput = e => { $('muR_N').value = e.target.value; if($('muLink').checked){ $('muL_R').value = e.target.value; $('muL_N').value = e.target.value; } !anim&&drawStatic(); }
+  $('muR_N').oninput = e => { let v=parseFloat(e.target.value)||0; v=Math.max(Math.min(v,parseFloat($('muR_N').max)),parseFloat($('muR_N').min)); $('muR_N').value=v; $('muR_R').value=v; if($('muLink').checked){ $('muL_R').value=v; $('muL_N').value=v; } !anim&&drawStatic(); }
 
   // Bind gravity selection
   $('gSel').onchange=e=>{const v=e.target.value;$('gCust').style.display=v==='custom'?'block':'none';
-    g=v==='custom'?parseFloat($('gCust').value)||9.81:parseFloat(v);!anim&&drawStatic();}
-  $('gCust').oninput=e=>{$('gSel').value==='custom'&&(g=parseFloat(e.target.value)||9.81,!anim&&drawStatic());}
+    g=v==='custom'?parseFloat($('gCust').value)||9.8:parseFloat(v);!anim&&drawStatic();}
+  $('gCust').oninput=e=>{$('gSel').value==='custom'&&(g=parseFloat(e.target.value)||9.8,!anim&&drawStatic());}
 
   // Bind simulation selection
   $('simSel').onchange=e=>{
@@ -1041,6 +1048,7 @@ addEventListener('DOMContentLoaded', () => {
   // Keep the lock that only allows rightward motion
   netF = Math.max(0, netF);
   acc = total ? netF / total : 0;
+      chartSign = 1; // table is locked to the right; graphs stay positive as-is
       lastAcc = acc; lastVel = 0;
       accChart.data.datasets[0].data[0]=acc;
       [posChart,velChart,accChart].forEach(c=>c.update());
@@ -1051,8 +1059,9 @@ addEventListener('DOMContentLoaded', () => {
       const h=parseFloat($('hPulR').value),m1=parseFloat($('m1R').value),m2=parseFloat($('m2R').value);
       netF=Math.abs(m2-m1)*g;
       acc=((m2-m1)/(m1+m2))*g;
+      chartSign = acc>=0 ? 1 : -1; // orient charts to positive direction of acceleration
       lastAcc = acc; lastVel = 0;
-      accChart.data.datasets[0].data[0]=acc;
+      accChart.data.datasets[0].data[0]=Math.abs(acc);
       [posChart,velChart,accChart].forEach(c=>c.update());
       updateInfoDisplay(lastAcc, lastVel, netF, 'Running', '');
       anim=requestAnimationFrame(ts=>stepAtwood(ts,h));
@@ -1060,14 +1069,26 @@ addEventListener('DOMContentLoaded', () => {
       const mL=parseFloat($('mLeftN').value), mR=parseFloat($('mRightN').value),
             angL=parseFloat($('dblAngLN').value)*Math.PI/180, angR=parseFloat($('dblAngRN').value)*Math.PI/180,
             muL=parseFloat($('muL_N').value), muR=parseFloat($('muR_N').value);
-      // Positive netF means right block tends to move down (clockwise)
-      const gravityTerm = mR*g*Math.sin(angR) - mL*g*Math.sin(angL);
-      const frictionTerm = muR*mR*g*Math.cos(angR) + muL*mL*g*Math.cos(angL);
-      netF = gravityTerm - frictionTerm; // allow negative (bidirectional)
+      // Determine direction from gravity only, then apply friction opposing motion (static threshold)
+      const drive = mR*g*Math.sin(angR) - mL*g*Math.sin(angL); // + = tends right block down
+      const Ff = muR*mR*g*Math.cos(angR) + muL*mL*g*Math.cos(angL); // total opposing friction if it moves
       const total = mL + mR;
-      acc = total ? netF / total : 0;
+
+      if (total === 0 || Math.abs(drive) <= Ff) {
+        // Static: gravity imbalance is not enough to overcome friction (or zero mass)
+        netF = 0; acc = 0; chartSign = 1; lastAcc = 0; lastVel = 0;
+        accChart.data.datasets[0].data[0]=0;
+        [posChart,velChart,accChart].forEach(c=>c.update());
+        updateInfoDisplay(0, 0, 0, 'Stopped', '');
+        return; // do not start animation
+      }
+
+      const sgn = drive >= 0 ? 1 : -1; // motion direction
+      netF = sgn * (Math.abs(drive) - Ff);
+      acc = netF / total;
+      chartSign = acc>=0 ? 1 : -1; // orient charts to positive direction of acceleration
       lastAcc = acc; lastVel = 0;
-      accChart.data.datasets[0].data[0]=acc;
+      accChart.data.datasets[0].data[0]=Math.abs(acc);
       [posChart,velChart,accChart].forEach(c=>c.update());
       const dirLabel = netF < 0 ? '[left]' : (netF > 0 ? '[right]' : '');
       updateInfoDisplay(Math.abs(lastAcc), lastVel, Math.abs(netF), 'Running', dirLabel);
